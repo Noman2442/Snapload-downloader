@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SnapLoad – Social Video Downloader</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png" />
+  <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=Cabinet+Grotesk:wght@300;400;500;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #03050c;
+      --surface: #080d1a;
+      --card: #0c1221;
+      --card2: #101828;
+      --border: #1a2540;
+      --border2: #243055;
+      --accent: #0ef;
+      --accent-dim: rgba(0,238,255,0.12);
+      --accent-glow: rgba(0,238,255,0.25);
+      --violet: #8b5cf6;
+      --violet-dim: rgba(139,92,246,0.12);
+      --pink: #f43f8e;
+      --pink-dim: rgba(244,63,142,0.1);
+      --green: #10f09a;
+      --amber: #fbbf24;
+      --text: #e2eaff;
+      --muted: #5a6b8c;
+      --muted2: #3d4f70;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Cabinet Grotesk', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* === BACKGROUND === */
+    .bg-layer {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    }
+    .bg-noise {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity: 0.4;
+    }
+    .bg-orb1 {
+      position: fixed; width: 700px; height: 700px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,238,255,0.07) 0%, transparent 70%);
+      top: -200px; left: -200px; pointer-events: none; z-index: 0;
+    }
+    .bg-orb2 {
+      position: fixed; width: 600px; height: 600px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%);
+      bottom: -150px; right: -150px; pointer-events: none; z-index: 0;
+    }
+    .bg-orb3 {
+      position: fixed; width: 400px; height: 400px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(244,63,142,0.05) 0%, transparent 70%);
+      top: 50%; left: 60%; pointer-events: none; z-index: 0;
+    }
+    .bg-grid {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image: linear-gradient(rgba(0,238,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,238,255,0.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+
+    /* === HEADER === */
+    header {
+      position: relative; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 48px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(3,5,12,0.7);
+      backdrop-filter: blur(24px);
+    }
+    .logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .logo-mark {
+      width: 42px; height: 42px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--violet));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; box-shadow: 0 0 24px var(--accent-glow);
+      position: relative; overflow: hidden;
+    }
+    .logo-mark::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.15));
+    }
+    .logo-name {
+      font-family: 'Clash Display', sans-serif;
+      font-size: 1.55rem; font-weight: 700; letter-spacing: -0.5px;
+      background: linear-gradient(90deg, #fff 30%, var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .logo-name em { font-style: normal; background: linear-gradient(90deg, var(--accent), var(--violet)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+    nav { display: flex; gap: 6px; }
+    nav a {
+      color: var(--muted); text-decoration: none; font-size: 0.88rem; font-weight: 500;
+      padding: 8px 16px; border-radius: 8px; transition: all 0.2s;
+    }
+    nav a:hover { color: var(--text); background: var(--accent-dim); }
+
+    /* === HERO === */
+    .hero {
+      position: relative; z-index: 5;
+      text-align: center; padding: 90px 20px 60px;
+    }
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(0,238,255,0.06); border: 1px solid rgba(0,238,255,0.18);
+      border-radius: 100px; padding: 7px 20px; font-size: 0.78rem;
+      color: var(--accent); letter-spacing: 1px; text-transform: uppercase;
+      margin-bottom: 32px; font-weight: 600;
+    }
+    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: blink 2s infinite; }
+    @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+
+    h1 {
+      font-family: 'Clash Display', sans-serif;
+      font-size: clamp(2.6rem, 7vw, 5.2rem);
+      font-weight: 700; line-height: 1.0; letter-spacing: -2.5px;
+      margin-bottom: 24px;
+    }
+    .h1-white { color: var(--text); display: block; }
+    .h1-gradient {
+      display: block;
+      background: linear-gradient(100deg, var(--accent) 0%, var(--violet) 50%, var(--pink) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 30px rgba(0,238,255,0.3));
+    }
+    .subtitle { color: var(--muted); font-size: 1.05rem; max-width: 480px; margin: 0 auto 52px; line-height: 1.7; font-weight: 400; }
+
+    /* === PLATFORM BADGES === */
+    .platforms { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin-bottom: 56px; }
+    .plat {
+      display: flex; align-items: center; gap: 8px; padding: 9px 20px;
+      border-radius: 100px; border: 1px solid var(--border);
+      background: var(--card); font-size: 0.83rem; font-weight: 600;
+      cursor: default; transition: all 0.25s; color: var(--muted);
+      user-select: none;
+    }
+    .plat:hover { border-color: transparent; transform: translateY(-2px); }
+    .plat-yt:hover  { background: #ff0000; color: #fff; box-shadow: 0 8px 24px rgba(255,0,0,0.25); }
+    .plat-tk:hover  { background: linear-gradient(135deg,#010101,#25F4EE); color: #fff; box-shadow: 0 8px 24px rgba(37,244,238,0.2); }
+    .plat-ig:hover  { background: linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045); color: #fff; box-shadow: 0 8px 24px rgba(253,29,29,0.2); }
+    .plat-fb:hover  { background: #1877F2; color: #fff; box-shadow: 0 8px 24px rgba(24,119,242,0.25); }
+    .plat-tw:hover  { background: #1da1f2; color: #fff; box-shadow: 0 8px 24px rgba(29,161,242,0.25); }
+    .plat-icon { font-size: 1rem; }
+
+    /* === MAIN CARD === */
+    .main-card { position: relative; z-index: 5; max-width: 800px; margin: 0 auto 100px; padding: 0 20px; }
+    .card {
+      background: linear-gradient(145deg, #0e1628, #0b1220);
+      border: 1px solid var(--border2);
+      border-radius: 28px; padding: 40px;
+      box-shadow: 0 0 0 1px rgba(0,238,255,0.05), 0 40px 80px rgba(0,0,0,0.5), 0 0 60px rgba(0,238,255,0.04);
+      position: relative; overflow: hidden;
+    }
+    .card::before {
+      content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0.6;
+    }
+    .card::after {
+      content: ''; position: absolute; top: -60px; right: -60px;
+      width: 200px; height: 200px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* === INPUT === */
+    .input-row { display: flex; gap: 10px; margin-bottom: 32px; }
+    .url-input {
+      flex: 1; background: rgba(255,255,255,0.04);
+      border: 1.5px solid var(--border2);
+      border-radius: 14px; padding: 16px 22px;
+      color: var(--text); font-family: 'Cabinet Grotesk', sans-serif;
+      font-size: 0.95rem; outline: none; transition: all 0.2s;
+    }
+    .url-input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(0,238,255,0.08), 0 0 20px rgba(0,238,255,0.05); background: rgba(0,238,255,0.03); }
+    .url-input::placeholder { color: var(--muted2); }
+
+    .fetch-btn {
+      background: linear-gradient(135deg, var(--accent), #00c8e0);
+      border: none; border-radius: 14px; padding: 16px 30px;
+      color: #000; font-family: 'Clash Display', sans-serif;
+      font-weight: 600; font-size: 0.95rem; cursor: pointer;
+      transition: all 0.25s; white-space: nowrap; display: flex; align-items: center; gap: 8px;
+      box-shadow: 0 0 20px rgba(0,238,255,0.2);
+    }
+    .fetch-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,238,255,0.35); }
+    .fetch-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    /* === LOADING === */
+    #loading { display: none; text-align: center; padding: 36px 0; }
+    .spin-ring {
+      width: 48px; height: 48px; margin: 0 auto 18px;
+      border-radius: 50%; position: relative;
+    }
+    .spin-ring::before, .spin-ring::after {
+      content: ''; position: absolute; border-radius: 50%;
+    }
+    .spin-ring::before {
+      inset: 0; border: 2px solid var(--border2);
+    }
+    .spin-ring::after {
+      inset: 0; border: 2px solid transparent;
+      border-top-color: var(--accent);
+      animation: spin 0.75s linear infinite;
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { color: var(--muted); font-size: 0.88rem; letter-spacing: 0.3px; }
+
+    /* === ERROR === */
+    #error-box {
+      display: none;
+      background: rgba(244,63,142,0.07); border: 1px solid rgba(244,63,142,0.2);
+      border-radius: 12px; padding: 14px 20px;
+      color: var(--pink); font-size: 0.88rem; margin-bottom: 20px;
+      display: none; align-items: center; gap: 10px;
+    }
+
+    /* === RESULT === */
+    #result { display: none; }
+
+    .video-preview {
+      display: flex; gap: 20px; align-items: center;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+      border-radius: 18px; padding: 20px; margin-bottom: 28px;
+    }
+    .thumb-wrap {
+      width: 130px; height: 85px; border-radius: 12px;
+      overflow: hidden; background: var(--border); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; position: relative;
+    }
+    .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    .thumb-overlay {
+      position: absolute; inset: 0; background: linear-gradient(to top right, rgba(0,238,255,0.1), transparent);
+    }
+    .video-info { flex: 1; min-width: 0; }
+    .video-title {
+      font-family: 'Clash Display', sans-serif; font-weight: 600; font-size: 1rem;
+      margin-bottom: 10px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .meta-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .meta-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--accent-dim); border: 1px solid rgba(0,238,255,0.15);
+      border-radius: 6px; padding: 4px 11px; font-size: 0.76rem;
+      color: var(--accent); font-weight: 600; letter-spacing: 0.2px;
+    }
+    .meta-chip.green { background: rgba(16,240,154,0.08); border-color: rgba(16,240,154,0.2); color: var(--green); }
+    .meta-chip.violet { background: var(--violet-dim); border-color: rgba(139,92,246,0.2); color: var(--violet); }
+
+    /* === FORMAT BUTTONS === */
+    .section-label {
+      font-size: 0.76rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1.2px; color: var(--muted); margin-bottom: 14px;
+    }
+    .formats-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 28px; }
+    .res-btn {
+      flex: 1; min-width: 130px;
+      padding: 14px 12px; border-radius: 12px;
+      border: 1.5px solid var(--border2); background: rgba(255,255,255,0.03);
+      color: var(--muted); font-family: 'Clash Display', sans-serif;
+      font-weight: 600; font-size: 0.88rem; cursor: pointer;
+      transition: all 0.2s; text-align: center; position: relative; overflow: hidden;
+    }
+    .res-btn::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(0,238,255,0.08), transparent);
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .res-btn:hover { border-color: rgba(0,238,255,0.3); color: var(--accent); transform: translateY(-1px); }
+    .res-btn:hover::before { opacity: 1; }
+    .res-btn.active {
+      border-color: var(--accent); color: var(--accent);
+      background: var(--accent-dim); box-shadow: 0 0 20px rgba(0,238,255,0.12);
+    }
+    .res-btn.active::before { opacity: 1; }
+    .res-btn .badge {
+      display: block; font-size: 0.65rem; color: var(--muted); margin-top: 3px;
+      font-family: 'Cabinet Grotesk', sans-serif; font-weight: 400;
+    }
+    .res-btn.active .badge { color: rgba(0,238,255,0.6); }
+
+    /* === DOWNLOAD BUTTON === */
+    .dl-btn {
+      width: 100%; padding: 20px; border-radius: 16px; border: none;
+      background: linear-gradient(135deg, var(--pink) 0%, #a855f7 100%);
+      color: #fff; font-family: 'Clash Display', sans-serif;
+      font-weight: 700; font-size: 1.1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      position: relative; overflow: hidden; transition: all 0.3s;
+      box-shadow: 0 8px 32px rgba(244,63,142,0.25);
+    }
+    .dl-btn::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 60%);
+    }
+    .dl-btn::after {
+      content: ''; position: absolute; top: 0; left: -100%;
+      width: 60%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+      transition: left 0.6s ease; pointer-events: none;
+    }
+    .dl-btn:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(244,63,142,0.35); }
+    .dl-btn:hover::after { left: 160%; }
+    .dl-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+    .dl-icon { flex-shrink: 0; animation: none; }
+    .dl-btn:not(:disabled):hover .dl-icon { animation: bounce-dl 0.5s ease; }
+    @keyframes bounce-dl { 0%,100%{transform:translateY(0);} 40%{transform:translateY(3px);} }
+
+    /* === FEATURES === */
+    .features { position: relative; z-index: 5; max-width: 900px; margin: 0 auto 100px; padding: 0 20px; }
+    .feat-heading {
+      font-family: 'Clash Display', sans-serif; font-size: 1.8rem; font-weight: 700;
+      text-align: center; margin-bottom: 40px; letter-spacing: -1px; color: var(--text);
+    }
+    .feat-heading span { background: linear-gradient(90deg, var(--accent), var(--violet)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .feats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+    .feat {
+      background: linear-gradient(145deg, #0c1525, #090f1c);
+      border: 1px solid var(--border); border-radius: 20px; padding: 28px;
+      position: relative; overflow: hidden; transition: all 0.25s;
+    }
+    .feat:hover { border-color: var(--border2); transform: translateY(-3px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+    .feat::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border2), transparent);
+    }
+    .feat-icon-wrap {
+      width: 48px; height: 48px; border-radius: 14px; margin-bottom: 18px;
+      display: flex; align-items: center; justify-content: center; font-size: 1.4rem;
+    }
+    .feat-icon-wrap.cyan { background: var(--accent-dim); border: 1px solid rgba(0,238,255,0.15); }
+    .feat-icon-wrap.violet { background: var(--violet-dim); border: 1px solid rgba(139,92,246,0.2); }
+    .feat-icon-wrap.pink { background: var(--pink-dim); border: 1px solid rgba(244,63,142,0.2); }
+    .feat-icon-wrap.green { background: rgba(16,240,154,0.08); border: 1px solid rgba(16,240,154,0.15); }
+    .feat-title { font-family: 'Clash Display', sans-serif; font-weight: 600; font-size: 1rem; margin-bottom: 8px; color: var(--text); }
+    .feat-desc { color: var(--muted); font-size: 0.85rem; line-height: 1.6; }
+
+    /* === FOOTER === */
+    footer {
+      position: relative; z-index: 5; border-top: 1px solid var(--border);
+      text-align: center; padding: 36px 20px;
+      color: var(--muted); font-size: 0.83rem;
+    }
+    footer strong { color: var(--accent); }
+
+    /* === TOAST === */
+    #toast {
+      position: fixed; bottom: 32px; right: 32px;
+      background: linear-gradient(135deg, #0ef, #00c8e0);
+      color: #000; padding: 14px 24px; border-radius: 14px;
+      font-weight: 700; font-size: 0.88rem; z-index: 9999;
+      transform: translateY(80px) scale(0.9); opacity: 0;
+      transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      box-shadow: 0 8px 32px rgba(0,238,255,0.3); display: flex; align-items: center; gap: 8px;
+    }
+    #toast.show { transform: translateY(0) scale(1); opacity: 1; }
+
+    /* === PROGRESS BAR === */
+    .dl-progress { display: none; margin-top: 16px; }
+    .dl-progress-bar-wrap {
+      background: var(--surface); border-radius: 100px; height: 6px;
+      overflow: hidden; border: 1px solid var(--border);
+    }
+    .dl-progress-bar {
+      height: 100%; border-radius: 100px; width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--violet));
+      transition: width 0.3s ease;
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+    .dl-progress-text { font-size: 0.78rem; color: var(--muted); margin-top: 8px; text-align: center; }
+
+    @media (max-width: 640px) {
+      header { padding: 16px 20px; }
+      nav { display: none; }
+      .card { padding: 24px; }
+      .input-row { flex-direction: column; }
+      .fetch-btn { justify-content: center; }
+      h1 { letter-spacing: -1.5px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Background layers -->
+<div class="bg-layer"></div>
+<div class="bg-noise"></div>
+<div class="bg-orb1"></div>
+<div class="bg-orb2"></div>
+<div class="bg-orb3"></div>
+<div class="bg-grid"></div>
+
+<header>
+  <a class="logo" href="#">
+    <div class="logo-mark"><img src="{{ url_for('static', filename='logo.png') }}" alt="SnapLoad Logo"></div>
+    <div class="logo-name">Snap<em>Load</em></div>
+  </a>
+  <nav>
+    <a href="#">Home</a>
+    <a href="#">How It Works</a>
+    <a href="#">About</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="pill"><span class="pill-dot"></span> Free · Fast · No Watermark</div>
+  <h1>
+    <span class="h1-white">Download Any</span>
+    <span class="h1-gradient">Social Video</span>
+  </h1>
+  <p class="subtitle">Paste any link from YouTube, TikTok, Instagram, Facebook and more. Get instant HD downloads at full speed.</p>
+
+  <div class="platforms">
+    <div class="plat plat-yt"><span class="plat-icon">▶</span> YouTube</div>
+    <div class="plat plat-tk"><span class="plat-icon">♪</span> TikTok</div>
+    <div class="plat plat-ig"><span class="plat-icon">◎</span> Instagram</div>
+    <div class="plat plat-fb"><span class="plat-icon">ƒ</span> Facebook</div>
+    <div class="plat plat-tw"><span class="plat-icon">✦</span> Twitter/X</div>
+  </div>
+</section>
+
+<section class="main-card">
+  <div class="card">
+    <div class="input-row">
+      <input class="url-input" id="urlInput" type="url"
+        placeholder="Paste video URL here… (YouTube, TikTok, Instagram…)" autocomplete="off" />
+      <button class="fetch-btn" id="fetchBtn" onclick="fetchVideo()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        Fetch
+      </button>
+    </div>
+
+    <div id="error-box"></div>
+
+    <div id="loading">
+      <div class="spin-ring"></div>
+      <p class="loading-text">Extracting video info from server…</p>
+    </div>
+
+    <div id="result">
+      <div class="video-preview">
+        <div class="thumb-wrap" id="thumbWrap">
+          🎬
+          <div class="thumb-overlay"></div>
+        </div>
+        <div class="video-info">
+          <div class="video-title" id="videoTitle">Loading title…</div>
+          <div class="meta-row">
+            <span class="meta-chip" id="durationTag">⏱ Duration</span>
+            <span class="meta-chip green">✓ No Watermark</span>
+            <span class="meta-chip violet" id="platformTag">Platform</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">Choose Quality</div>
+      <div class="formats-grid" id="formatsContainer"></div>
+
+      <button class="dl-btn" id="dlBtn" onclick="downloadSelectedVideo()">
+        <svg class="dl-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span id="dlBtnText">Download Now</span>
+      </button>
+
+      <div class="dl-progress" id="dlProgress">
+        <div class="dl-progress-bar-wrap">
+          <div class="dl-progress-bar" id="dlProgressBar"></div>
+        </div>
+        <div class="dl-progress-text" id="dlProgressText">Starting download…</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="features">
+  <h2 class="feat-heading">Why <span>SnapLoad?</span></h2>
+  <div class="feats-grid">
+    <div class="feat">
+      <div class="feat-icon-wrap cyan">⚡</div>
+      <div class="feat-title">Lightning Fast</div>
+      <div class="feat-desc">Direct CDN streaming proxy gives you maximum download speed without any throttling.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon-wrap violet">🎬</div>
+      <div class="feat-title">Multi-Platform</div>
+      <div class="feat-desc">Supports YouTube, TikTok, Instagram, Facebook, Twitter/X, and hundreds of other sites.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon-wrap pink">🚫</div>
+      <div class="feat-title">No Watermark</div>
+      <div class="feat-desc">Download original clean video files without any branding or watermarks overlaid.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon-wrap green">🎵</div>
+      <div class="feat-title">Audio Extract</div>
+      <div class="feat-desc">Extract audio-only in MP3/M4A format from any video. Perfect for music and podcasts.</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>© 2026 <strong>SnapLoad</strong> — Built with ❤️ for fast downloads</p>
+</footer>
+
+<div id="toast">⚡ Download started!</div>
+
+<script>
+  let selectedDownloadUrl = '';
+  let finalFileName = 'video.mp4';
+  let videoDataTitle = '';
+
+  async function fetchVideo() {
+    const urlInput = document.getElementById('urlInput').value.trim();
+    const loadingBox = document.getElementById('loading');
+    const resultBox = document.getElementById('result');
+    const fetchBtn = document.getElementById('fetchBtn');
+
+    if (!urlInput) { showError('Please paste a social media video link first.'); return; }
+
+    hideError();
+    resultBox.style.display = 'none';
+    loadingBox.style.display = 'block';
+    fetchBtn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('url', urlInput);
+
+    try {
+      const response = await fetch('/get-video', { method: 'POST', body: formData });
+      const data = await response.json();
+
+      loadingBox.style.display = 'none';
+      fetchBtn.disabled = false;
+
+      if (data.error) {
+        showError(data.error);
+      } else {
+        videoDataTitle = data.title;
+        document.getElementById('videoTitle').textContent = data.title;
+        document.getElementById('durationTag').textContent = '⏱ ' + data.duration;
+
+        // Detect platform from URL
+        const url = urlInput.toLowerCase();
+        const plat = url.includes('youtube') || url.includes('youtu.be') ? '▶ YouTube'
+          : url.includes('tiktok') ? '♪ TikTok'
+          : url.includes('instagram') ? '◎ Instagram'
+          : url.includes('facebook') || url.includes('fb.watch') ? 'ƒ Facebook'
+          : url.includes('twitter') || url.includes('x.com') ? '✦ Twitter/X'
+          : '🌐 Video';
+        document.getElementById('platformTag').textContent = plat;
+
+        const thumbWrap = document.getElementById('thumbWrap');
+        if (data.thumbnail) {
+          thumbWrap.innerHTML = `<img src="${data.thumbnail}" alt="thumbnail"><div class="thumb-overlay"></div>`;
+        } else {
+          thumbWrap.innerHTML = '🎬<div class="thumb-overlay"></div>';
+        }
+
+        const formatsContainer = document.getElementById('formatsContainer');
+        formatsContainer.innerHTML = '';
+
+        data.formats.forEach((f, i) => {
+          const btn = document.createElement('button');
+          btn.className = i === 0 ? 'res-btn active' : 'res-btn';
+
+          const isAudio = f.quality.toLowerCase().includes('audio');
+          const qualityLabel = f.quality;
+          const subLabel = isAudio ? 'MP3 / M4A' : 'MP4';
+
+          btn.innerHTML = `${qualityLabel}<span class="badge">${subLabel}</span>`;
+
+          if (i === 0) { selectedDownloadUrl = f.url; updateFileName(f.quality); }
+
+          btn.onclick = () => {
+            document.querySelectorAll('.res-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedDownloadUrl = f.url;
+            updateFileName(f.quality);
+          };
+          formatsContainer.appendChild(btn);
+        });
+
+        resultBox.style.display = 'block';
+        resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    } catch (err) {
+      loadingBox.style.display = 'none';
+      fetchBtn.disabled = false;
+      showError('Connection lost. Please check your internet and try again.');
+    }
+  }
+
+  function updateFileName(quality) {
+    const cleanTitle = videoDataTitle.replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 30).trim().replace(/ /g, '_');
+    const isAudio = quality.toLowerCase().includes('audio');
+    finalFileName = `${cleanTitle}_${quality.replace(/ /g, '_')}.${isAudio ? 'mp3' : 'mp4'}`;
+  }
+
+  function downloadSelectedVideo() {
+    if (!selectedDownloadUrl) return;
+
+    const dlBtn = document.getElementById('dlBtn');
+    const dlBtnText = document.getElementById('dlBtnText');
+    const dlProgress = document.getElementById('dlProgress');
+    const dlProgressBar = document.getElementById('dlProgressBar');
+    const dlProgressText = document.getElementById('dlProgressText');
+
+    dlBtn.disabled = true;
+    dlBtnText.textContent = 'Starting…';
+    dlProgress.style.display = 'block';
+    dlProgressBar.style.width = '0%';
+    dlProgressText.textContent = 'Connecting to server…';
+
+    showToast('⚡ Downloading at full speed!');
+
+    // Animate progress bar (simulated for streaming downloads)
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+      progress = Math.min(progress + Math.random() * 4, 92);
+      dlProgressBar.style.width = progress + '%';
+      dlProgressText.textContent = `Downloading… ${Math.round(progress)}%`;
+    }, 250);
+
+    const downloadEndpoint = `/direct-download?url=${encodeURIComponent(selectedDownloadUrl)}&filename=${encodeURIComponent(finalFileName)}`;
+
+    // Use fetch + blob for better speed reporting
+    fetch(downloadEndpoint)
+      .then(res => {
+        const contentLength = res.headers.get('Content-Length');
+        const reader = res.body.getReader();
+        const chunks = [];
+        let received = 0;
+
+        clearInterval(progressInterval);
+
+        function read() {
+          return reader.read().then(({ done, value }) => {
+            if (done) {
+              const blob = new Blob(chunks);
+              const blobUrl = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = blobUrl;
+              a.download = finalFileName;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(blobUrl);
+
+              dlProgressBar.style.width = '100%';
+              dlProgressText.textContent = '✅ Download complete!';
+              dlBtnText.textContent = 'Download Now';
+              dlBtn.disabled = false;
+
+              setTimeout(() => { dlProgress.style.display = 'none'; }, 3000);
+              return;
+            }
+            chunks.push(value);
+            received += value.length;
+
+            if (contentLength) {
+              const pct = Math.round((received / parseInt(contentLength)) * 100);
+              dlProgressBar.style.width = pct + '%';
+              dlProgressText.textContent = `Downloading… ${pct}% (${(received / 1024 / 1024).toFixed(1)} MB)`;
+            } else {
+              dlProgressBar.style.width = '85%';
+              dlProgressText.textContent = `Downloading… ${(received / 1024 / 1024).toFixed(1)} MB received`;
+            }
+            return read();
+          });
+        }
+        return read();
+      })
+      .catch(() => {
+        // Fallback: anchor method
+        clearInterval(progressInterval);
+        const a = document.createElement('a');
+        a.href = downloadEndpoint;
+        a.setAttribute('target', '_self');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        dlProgressBar.style.width = '100%';
+        dlProgressText.textContent = '✅ Download started!';
+        dlBtnText.textContent = 'Download Now';
+        dlBtn.disabled = false;
+        setTimeout(() => { dlProgress.style.display = 'none'; }, 3000);
+      });
+  }
+
+  function showError(msg) {
+    const e = document.getElementById('error-box');
+    e.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ${msg}`;
+    e.style.display = 'flex';
+  }
+  function hideError() {
+    const e = document.getElementById('error-box');
+    e.style.display = 'none';
+  }
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 4000);
+  }
+
+  document.getElementById('urlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') fetchVideo();
+  });
+</script>
+</body>
+</html>
